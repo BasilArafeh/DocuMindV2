@@ -1,0 +1,16 @@
+fastapi
+pydantic
+pydantic-settings
+pymupdf
+Pillow
+pytesseract
+langchain-text-splitters
+tiktoken
+openai
+pinecone
+cohere
+slowapi
+uvicorn
+pytest
+pytest-asyncio
+httpx
