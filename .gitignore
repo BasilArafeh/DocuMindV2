@@ -42,6 +42,8 @@ env/
 
 # Testing & coverage
 .pytest_cache/
+test_api.py
+test.pdf
 .coverage
 .coverage.*
 htmlcov/
