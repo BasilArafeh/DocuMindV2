@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Children,
   useCallback,
   useEffect,
   useMemo,
@@ -9,7 +10,9 @@ import {
   type DragEvent,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 
 const BASE_URL = "/api";
 const MAX_FILE_SIZE_MB = 25;
@@ -241,6 +244,31 @@ function renderAnswer(text: string) {
     ),
   );
 }
+
+function formatInline(children: ReactNode) {
+  return (
+    <>
+      {Children.map(children, (child) =>
+        typeof child === "string" ? renderAnswer(child) : child,
+      )}
+    </>
+  );
+}
+
+const answerMarkdownComponents: Components = {
+  p: ({ children }) => <p className="mb-3 last:mb-0">{formatInline(children)}</p>,
+  strong: ({ children }) => (
+    <strong className="font-medium">{formatInline(children)}</strong>
+  ),
+  em: ({ children }) => <em className="italic">{formatInline(children)}</em>,
+  ul: ({ children }) => (
+    <ul className="mb-3 list-disc space-y-1 pl-6 last:mb-0">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-3 list-decimal space-y-1 pl-6 last:mb-0">{children}</ol>
+  ),
+  li: ({ children }) => <li className="pl-0.5">{formatInline(children)}</li>,
+};
 
 export default function Home() {
   const [sessionId] = useState(() => createId());
@@ -721,7 +749,9 @@ export default function Home() {
                         aria-live="polite"
                       >
                         {message.content ? (
-                          <p className="whitespace-pre-wrap">{renderAnswer(message.content)}</p>
+                          <ReactMarkdown components={answerMarkdownComponents}>
+                            {message.content}
+                          </ReactMarkdown>
                         ) : message.streaming ? (
                           <span className="text-muted italic">Reading the passages…</span>
                         ) : null}
