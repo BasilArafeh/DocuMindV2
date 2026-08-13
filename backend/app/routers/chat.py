@@ -24,7 +24,7 @@ from app.middleware.rate_limiter import limiter
 
 from app.models.schemas import ChatRequest
 
-from app.prompts.templates import prepare_prompt_context
+from app.prompts.prompt_builder import prepare_prompt_context
 
 from app.services.llm import LLMError, OpenAILLMService, build_citations
 

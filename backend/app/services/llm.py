@@ -19,7 +19,7 @@ from openai.types.chat import ChatCompletionChunk
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.prompts.templates import build_messages, prepare_prompt_context
+from app.prompts.prompt_builder import build_messages_with_included_chunks
 from app.services.retriever import RetrievedChunk
 
 logger = get_logger(__name__)
@@ -194,9 +194,11 @@ class OpenAILLMService:
         if not stripped_query:
             raise LLMError("Query must not be empty.")
 
-        messages = build_messages(stripped_query, context)
-        included_chunks, context_block = prepare_prompt_context(context)
-        context_chars = len(context_block)
+        messages, included_chunks = build_messages_with_included_chunks(
+            stripped_query,
+            context,
+        )
+        context_chars = len(messages[-1]["content"])
 
         logger.info(
             "Preparing LLM stream (model=%s, chunks=%d, included_chunks=%d, context_chars=%d, temperature=%.1f, max_tokens=%d)",
@@ -242,7 +244,7 @@ async def collect_streamed_answer(
     context: list[RetrievedChunk],
 ) -> GeneratedResponse:
     """Collect a streamed answer into a complete response with citations."""
-    included_chunks, _ = prepare_prompt_context(context)
+    _, included_chunks = build_messages_with_included_chunks(query, context)
     parts: list[str] = []
 
     async for token in service.stream_answer(query, context):
