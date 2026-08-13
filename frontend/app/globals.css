@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f4f1e9;
+  --panel: #fbfaf5;
+  --sidebar: #efebe0;
+  --ink: #23395b;
+  --ink-deep: #211e17;
+  --amber: #b98a3e;
+  --slate-blue: #7a8ba8;
+  --rule: #ddd6c8;
+  --muted: #6f675c;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-sidebar: var(--sidebar);
+  --color-ink: var(--ink);
+  --color-ink-deep: var(--ink-deep);
+  --color-amber: var(--amber);
+  --color-slate-blue: var(--slate-blue);
+  --color-rule: var(--rule);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, georgia, serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(ellipse at 12% -10%, rgba(185, 138, 62, 0.09), transparent 52%),
+    radial-gradient(ellipse at 100% 110%, rgba(35, 57, 91, 0.06), transparent 46%);
+  color: var(--ink-deep);
+  font-family: var(--font-sans);
+}
+
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.caret-blink {
+  animation: caret-blink 1s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret-blink {
+    animation: none;
+  }
+}
+
+.scroll-editorial {
+  scrollbar-width: thin;
+  scrollbar-color: #d4cbb8 transparent;
+}
+
+.scroll-editorial::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-editorial::-webkit-scrollbar-thumb {
+  background: #d4cbb8;
+  border-radius: 999px;
+}
