@@ -1,6 +1,11 @@
 name: Deploy backend
 
 on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - "backend/**"
   push:
     branches: [master]
     paths:
@@ -10,8 +15,41 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run tests
+        run: pytest
+        working-directory: backend
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          COHERE_RERANK_ENABLED: "true"
+          APP_ENV: "test"
+          MAX_FILE_SIZE_MB: "25"
+          OPENAI_CHAT_MODEL: "gpt-4o-mini"
+
   deploy:
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,28 +65,45 @@ jobs:
       - name: Log in to Azure Container Registry
         run: az acr login --name documindregistry
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
-      - name: Install dependencies
-        run: pip install -r backend/requirements.txt
-
-      - name: Run tests
-        run: pytest
-        working-directory: backend
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push image
-        run: |
-          docker build --platform linux/amd64 \
-            -t documindregistry.azurecr.io/documind-backend:latest \
-            backend
-          docker push documindregistry.azurecr.io/documind-backend:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            documindregistry.azurecr.io/documind-backend:${{ env.SHORT_SHA }}
+            documindregistry.azurecr.io/documind-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Update Container App
         run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
           az containerapp update \
             --name documind-api \
             --resource-group documind-rg \
-            --image documindregistry.azurecr.io/documind-backend:latest
+            --image "documindregistry.azurecr.io/documind-backend:${SHORT_SHA}"
+
+      - name: Verify deployment
+        run: |
+          HEALTH_URL="https://documind-api.grayforest-c8116f51.eastus.azurecontainerapps.io/health"
+          for attempt in $(seq 1 8); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
+            if [ "$status" = "200" ]; then
+              echo "Deployment healthy"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/8 failed with status ${status}"
+            if [ "$attempt" -lt 8 ]; then
+              sleep 10
+            fi
+          done
+          echo "Health check failed after 80 seconds"
+          exit 1
