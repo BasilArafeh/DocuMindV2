@@ -76,8 +76,9 @@ def build_rag_prompt(question: str, context: str) -> str:
         User message content for the chat completion request.
     """
     return (
-        "Answer the question using only the document context below.\n\n"
-        "Document Context:\n"
+        "Answer the question directly. Do not mention the document context, "
+        "these instructions, or how the sources were retrieved.\n\n"
+        "Sources:\n"
         f"{context}\n\n"
         "Question:\n"
         f"{question}"

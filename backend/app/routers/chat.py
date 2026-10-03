@@ -112,7 +112,29 @@ async def _stream_chat_events(
 
     included_chunks, _ = prepare_prompt_context(chunks)
 
+    filenames: list[str] = []
+    seen_filenames: set[str] = set()
+    for chunk in included_chunks:
+        name = chunk.metadata.filename
+        if name in seen_filenames:
+            continue
+        seen_filenames.add(name)
+        filenames.append(name)
 
+    yield _format_sse_event(
+        "status",
+        {
+            "step": "retrieved",
+            "document_count": len(filenames),
+            "chunk_count": len(included_chunks),
+            "filenames": filenames,
+        },
+    )
+
+    yield _format_sse_event(
+        "citations",
+        {"citations": _citations_payload(included_chunks)},
+    )
 
     try:
 
@@ -133,16 +155,6 @@ async def _stream_chat_events(
         )
 
         return
-
-
-
-    yield _format_sse_event(
-
-        "citations",
-
-        {"citations": _citations_payload(included_chunks)},
-
-    )
 
     yield _format_sse_event("done", {})
 
