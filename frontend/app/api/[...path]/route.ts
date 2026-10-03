@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 
 const UPSTREAM =
-  "https://documind-api.grayforest-c8116f51.eastus.azurecontainerapps.io";
+  "https://documindv2-production.up.railway.app";
 
 const HOP_BY_HOP = new Set([
   "accept-encoding",
