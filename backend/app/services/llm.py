@@ -43,6 +43,7 @@ class LLMCitation:
     filename: str
     chunk_index: int
     chunk_id: str
+    text: str
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ def build_citations(chunks: list[RetrievedChunk]) -> list[LLMCitation]:
                 filename=chunk.metadata.filename,
                 chunk_index=chunk.metadata.chunk_index,
                 chunk_id=chunk.id,
+                text=chunk.text,
             )
         )
 

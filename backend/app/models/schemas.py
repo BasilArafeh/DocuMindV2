@@ -42,6 +42,9 @@ class Citation(BaseModel):
     chunk_id: str
     text: str
     source: str
+    filename: str | None = None
+    chunk_index: int | None = None
+    doc_id: str | None = None
 
 
 class ChatResponse(BaseModel):
