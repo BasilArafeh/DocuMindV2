@@ -219,7 +219,17 @@ export function QaScreen() {
     selectedFilename ?? citations[0]?.filename ?? documents[0]?.filename ?? null;
 
   const history = useMemo<HistoryItem[]>(() => {
-    const users = messages.filter((message) => message.role === "user");
+    const deflection =
+      "This question is outside the scope of your documents. Please ask something related to the uploaded content.";
+    const users = messages.filter((message, index) => {
+      if (message.role !== "user") return false;
+      const next = messages[index + 1];
+      if (!next || next.role !== "assistant") return false;
+      if (next.gap || next.error) return false;
+      const content = next.content.trim();
+      if (!content || content === deflection) return false;
+      return true;
+    });
     const currentId = focusedMessageId ?? users.at(-1)?.id;
     return users.map((message) => ({
       id: message.id,
