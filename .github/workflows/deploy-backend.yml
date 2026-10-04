@@ -1,4 +1,4 @@
-name: Deploy backend
+name: Backend CI
 
 on:
   workflow_dispatch:
@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   test:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,26 +47,17 @@ jobs:
           MAX_FILE_SIZE_MB: "25"
           OPENAI_CHAT_MODEL: "gpt-4o-mini"
 
-  deploy:
-    name: Deploy to Railway
+  health-check:
+    name: Production health check
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Wait for Railway to deploy
+        run: sleep 60
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
-        working-directory: backend
-        run: railway up --service documindv2 --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: Health check
+      - name: Check backend health
         run: |
-          sleep 30
-          curl --fail https://documindv2-production.up.railway.app/health || exit 1
+          curl --fail --silent --show-error \
+            https://documindv2-production.up.railway.app/health \
+            || (echo "Health check failed — backend may be down" && exit 1)

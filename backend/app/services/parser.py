@@ -6,7 +6,7 @@ import asyncio
 import re
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 from fastapi import UploadFile
 from PIL import Image
 
