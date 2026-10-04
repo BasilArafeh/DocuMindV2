@@ -36,23 +36,63 @@ export function Composer({
   };
 
   return (
-    <form onSubmit={send} className="bg-transparent px-4 pt-1 pb-3 sm:px-5">
-      <div className="flex items-end gap-2 rounded-[12px] border border-[var(--border)] bg-[#E8E4DC] px-3 py-2 transition-[border-color] duration-200 ease-in-out focus-within:border-[var(--orange)]">
-        <span
-          className="mb-[11px] h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--orange)]"
-          aria-hidden="true"
-        />
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={onKeyDown}
-          rows={1}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="max-h-36 min-h-[40px] flex-1 resize-none appearance-none bg-[#E8E4DC] py-2 text-[14px] leading-6 font-normal text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)] disabled:cursor-not-allowed disabled:bg-[#E8E4DC] disabled:opacity-100"
-        />
-        <span className="mb-2 hidden shrink-0 text-[11px] text-[var(--ink-muted)] sm:block">⌘↵</span>
+    <form
+      onSubmit={send}
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        background: "transparent",
+        padding: "4px 24px 0",
+        marginBottom: 24,
+      }}
+    >
+      <div
+        className="flex items-end gap-2 transition-[border-color] duration-200 ease-in-out focus-within:border-[var(--orange)]"
+        style={{
+          width: "100%",
+          maxWidth: 780,
+          background: "#EDEAE2",
+          border: "1px solid #DDD8CE",
+          borderRadius: 16,
+          padding: "6px 10px 6px 14px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--orange)]"
+            style={{
+              flexShrink: 0,
+              alignSelf: "center",
+              marginBottom: 0,
+            }}
+            aria-hidden="true"
+          />
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            placeholder={placeholder}
+            disabled={disabled}
+            className="max-h-36 flex-1 resize-none appearance-none text-[14px] leading-6 font-normal text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)] disabled:cursor-not-allowed disabled:opacity-100"
+            style={{
+              background: "#EDEAE2",
+              minHeight: 32,
+              paddingTop: 4,
+              paddingBottom: 4,
+            }}
+          />
+        </div>
+        <span className="mb-1.5 hidden shrink-0 text-[11px] text-[var(--ink-muted)] sm:block">⌘↵</span>
         <button
           type="submit"
           disabled={disabled || !value.trim()}

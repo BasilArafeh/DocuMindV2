@@ -1,11 +1,10 @@
 "use client";
 
-import { IconTrash } from "@tabler/icons-react";
+import { IconFileText, IconTrash } from "@tabler/icons-react";
 
 export function DocRow({
   name,
   passages,
-  cites,
   selected,
   onSelect,
   onDelete,
@@ -13,14 +12,12 @@ export function DocRow({
 }: {
   name: string;
   passages: number;
-  cites: number;
+  cites?: number;
   selected: boolean;
   onSelect: () => void;
   onDelete?: () => void;
   deleting?: boolean;
 }) {
-  const cited = cites > 0;
-
   return (
     <div
       className="group relative"
@@ -41,14 +38,13 @@ export function DocRow({
         onClick={onSelect}
         className="flex w-full items-start gap-2.5 px-3 py-2 text-left"
       >
-        <span
+        <IconFileText
+          size={14}
+          stroke={1.8}
           style={{
-            marginTop: 6,
-            width: 7,
-            height: 7,
+            marginTop: 3,
             flexShrink: 0,
-            borderRadius: 999,
-            background: cited ? "#F26419" : "#374151",
+            color: selected ? "#FFFFFF" : "#9CA3AF",
           }}
         />
         <span className="min-w-0 flex-1">
@@ -70,8 +66,7 @@ export function DocRow({
               color: "#6B7280",
             }}
           >
-            {passages} {passages === 1 ? "page" : "pages"} · {cites}{" "}
-            {cites === 1 ? "citation" : "citations"}
+            {passages} {passages === 1 ? "passage" : "passages"} indexed
           </span>
         </span>
       </button>

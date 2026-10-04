@@ -14,11 +14,15 @@ export function EmptyState({
   documentCount,
   onUpload,
   onAsk,
+  suggestions = [],
+  loadingSuggestions = false,
 }: {
   hasDocuments: boolean;
   documentCount: number;
   onUpload: () => void;
   onAsk: (question: string) => void;
+  suggestions?: string[];
+  loadingSuggestions?: boolean;
 }) {
   if (!hasDocuments) {
     return (
@@ -46,6 +50,9 @@ export function EmptyState({
     );
   }
 
+  const chips =
+    suggestions.length > 0 ? suggestions : loadingSuggestions ? [] : STARTERS;
+
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
       <BrandMark size={48} />
@@ -60,17 +67,31 @@ export function EmptyState({
         question.
       </p>
       <div className="mt-6 flex max-w-md flex-wrap justify-center gap-2">
-        {STARTERS.map((starter, index) => (
-          <button
-            key={starter}
-            type="button"
-            onClick={() => onAsk(starter)}
-            className="followup-enter rounded-full border border-[var(--border)] bg-[var(--bg-page)] px-3 py-1.5 text-[12px] text-[var(--ink-soft)] hover:border-[var(--orange-border)] hover:bg-[var(--orange-bg)]"
-            style={{ animationDelay: `${index * 80}ms` }}
-          >
-            {starter}
-          </button>
-        ))}
+        {loadingSuggestions
+          ? [0, 1, 2].map((index) => (
+              <span
+                key={index}
+                className="animate-pulse px-3 py-1.5 text-[12px]"
+                style={{
+                  background: "#E8E4DC",
+                  borderRadius: 20,
+                  minWidth: 140,
+                  height: 30,
+                }}
+                aria-hidden="true"
+              />
+            ))
+          : chips.map((starter, index) => (
+              <button
+                key={starter}
+                type="button"
+                onClick={() => onAsk(starter)}
+                className="followup-enter rounded-full border border-[var(--border)] bg-[var(--bg-page)] px-3 py-1.5 text-[12px] text-[var(--ink-soft)] hover:border-[var(--orange-border)] hover:bg-[var(--orange-bg)]"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
+                {starter}
+              </button>
+            ))}
       </div>
     </div>
   );

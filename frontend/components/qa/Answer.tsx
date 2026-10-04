@@ -2,13 +2,12 @@
 
 import { Children, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { unusedCitationMarkers } from "@/lib/passage";
 import type { Citation as CitationRecord } from "@/lib/types";
-import { Citation } from "./Citation";
 import { GapCallout } from "./GapCallout";
 import { Highlight } from "./Highlight";
 import { SourceCards } from "./SourceCards";
 import { Thinking } from "./Thinking";
+import { useTether } from "./Tether";
 
 function AnswerMark() {
   return (
@@ -35,14 +34,59 @@ function AnswerMark() {
   );
 }
 
+function AnswerCitation({ n }: { n: number }) {
+  const tether = useTether();
+  const active = tether?.displayN === n;
+
+  return (
+    <button
+      type="button"
+      aria-label={`Citation ${n}`}
+      data-active={active ? "true" : undefined}
+      onMouseEnter={() => tether?.setHoveredN(n)}
+      onMouseLeave={() => tether?.setHoveredN(null)}
+      onFocus={() => tether?.setHoveredN(n)}
+      onBlur={() => tether?.setHoveredN(null)}
+      onClick={() => tether?.selectN(n)}
+      style={{
+        display: "inline-flex",
+        width: 18,
+        height: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        background: active ? "#d95a16" : "#F26419",
+        color: "#FFFFFF",
+        borderRadius: 5,
+        fontSize: 11,
+        fontWeight: 600,
+        verticalAlign: "middle",
+        margin: "0 2px",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        lineHeight: 1,
+        fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+      }}
+    >
+      {n}
+    </button>
+  );
+}
+
+/** Protect [n] from ReactMarkdown link-reference parsing. */
+function protectCitations(text: string) {
+  return text.replace(/\[(\d+)\]/g, "⦃$1⦄");
+}
+
 function renderCitations(text: string) {
-  const parts = text.split(/(\[\d+\])/g);
+  const parts = text.split(/(⦃\d+⦄|\[\d+\])/g);
   return parts.map((part, index) => {
-    const match = part.match(/^\[(\d+)\]$/);
+    const match = part.match(/^(?:⦃(\d+)⦄|\[(\d+)\])$/);
     if (match) {
-      return <Citation key={`${part}-${index}`} n={Number(match[1])} />;
+      const n = Number(match[1] ?? match[2]);
+      return <AnswerCitation key={`${n}-${index}`} n={n} />;
     }
-    return <span key={`${part}-${index}`}>{part}</span>;
+    return <span key={`t-${index}`}>{part}</span>;
   });
 }
 
@@ -90,24 +134,36 @@ const markdownComponents: Components = {
   li: ({ children }) => (
     <li
       style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 10,
+        position: "relative",
+        listStyle: "none",
         marginBottom: 8,
+        // Bullet (4px) + gap (10px): text column starts here on every wrapped line.
+        paddingLeft: 14,
       }}
     >
       <span
         aria-hidden="true"
         style={{
+          position: "absolute",
+          left: 0,
+          top: 10,
           width: 4,
           height: 4,
-          marginTop: 8,
           borderRadius: 1,
           background: "#F26419",
-          flexShrink: 0,
         }}
       />
-      <span style={{ minWidth: 0, flex: 1 }}>{formatInline(children)}</span>
+      <div
+        style={{
+          margin: 0,
+          padding: 0,
+          // Neutralize nested <p> margins from react-markdown loose lists
+          // so the text block is a single flush column.
+        }}
+        className="answer-li-body"
+      >
+        {formatInline(children)}
+      </div>
     </li>
   ),
   mark: ({ children }) => <Highlight>{children}</Highlight>,
@@ -126,10 +182,7 @@ export function Answer({
   error?: string;
   gap?: string;
 }) {
-  const sourced = unusedCitationMarkers(
-    content,
-    citations.map((item) => item.n),
-  );
+  const sourced = content ? protectCitations(content) : "";
 
   return (
     <div>

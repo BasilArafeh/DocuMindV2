@@ -2,6 +2,7 @@
 
 import { IconChevronRight } from "@tabler/icons-react";
 import { useEffect, useRef } from "react";
+import { cleanDisplayFilename } from "@/lib/filename";
 import type { Citation } from "@/lib/types";
 import { passageView } from "@/lib/passage";
 import { useTether } from "./Tether";
@@ -95,7 +96,9 @@ export function EvidencePanel({
       <header className="flex h-[54px] shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-medium text-[var(--ink)]">Evidence</p>
-          <p className="truncate text-[11px] text-[var(--ink-muted)]">{active?.filename ?? ""}</p>
+          <p className="truncate text-[11px] text-[var(--ink-muted)]">
+            {active?.filename ? cleanDisplayFilename(active.filename) : ""}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {citations.map((citation) => {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import cohere
 
@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 CANDIDATE_TOP_K = 20
 FINAL_TOP_K = 5
-MIN_RELEVANCE_SCORE = 0.3
+MIN_RELEVANCE_SCORE = 0.20
 COHERE_RERANK_MODEL = "rerank-v3.5"
 
 
@@ -126,6 +126,7 @@ class Retriever:
         final_top_k: int = FINAL_TOP_K,
         min_relevance_score: float = MIN_RELEVANCE_SCORE,
         rerank_enabled: bool | None = None,
+        llm_client: Any = None,
     ) -> None:
         self._vector_store = vector_store
         self._embedder = embedder or OpenAIEmbeddingProvider()
@@ -140,6 +141,40 @@ class Retriever:
         self._reranker = reranker or (
             CohereReranker() if self._rerank_enabled else None
         )
+        self._llm_client = llm_client
+
+    async def _hypothesize(self, query: str) -> str:
+        """Generate a hypothetical answer to improve embedding quality."""
+        if self._llm_client is None:
+            return query
+        try:
+            completion = await self._llm_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful assistant. Write a short, factual "
+                            "paragraph (2-3 sentences) that would answer the following "
+                            "question if it appeared in a document. Do not say you are "
+                            "guessing. Just write the answer directly."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": query,
+                    },
+                ],
+                max_tokens=150,
+                temperature=0.3,
+            )
+            hypothetical = completion.choices[0].message.content or ""
+            return hypothetical.strip() if hypothetical.strip() else query
+        except Exception:
+            logger.warning(
+                "HyDE hypothetical generation failed, falling back to raw query"
+            )
+            return query
 
     async def _embed_query(self, query: str) -> list[float]:
         """Generate an embedding vector for a user query."""
@@ -241,7 +276,9 @@ class Retriever:
             session_id,
         )
 
-        query_vector = await self._embed_query(stripped_query)
+        hypothetical = await self._hypothesize(stripped_query)
+        logger.info("HyDE hypothetical: %s", hypothetical[:100])
+        query_vector = await self._embed_query(hypothetical)
         candidates = await self._search_candidates(query_vector, session_id)
         candidates = _filter_by_relevance_score(candidates, self._min_relevance_score)
 
@@ -254,8 +291,6 @@ class Retriever:
         else:
             chunks = candidates[: self._final_top_k]
 
-        chunks = _filter_by_relevance_score(chunks, self._min_relevance_score)
-
         logger.info("Retrieved %d chunks for query", len(chunks))
         return chunks
 
@@ -265,6 +300,7 @@ def create_retriever(
     embedder: EmbeddingProvider | None = None,
     reranker: RerankerProvider | None = None,
     rerank_enabled: bool | None = None,
+    llm_client: Any = None,
 ) -> Retriever:
     """Create a retriever instance."""
     return Retriever(
@@ -272,4 +308,5 @@ def create_retriever(
         embedder=embedder,
         reranker=reranker,
         rerank_enabled=rerank_enabled,
+        llm_client=llm_client,
     )

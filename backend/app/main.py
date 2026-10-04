@@ -1,12 +1,9 @@
 """main.py — FastAPI application entry point."""
 
 from __future__ import annotations
-
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from slowapi.errors import RateLimitExceeded
 
 from app.middleware import (
@@ -17,6 +14,7 @@ from app.middleware import (
 from app.middleware.exception_handler import rate_limit_exceeded_handler
 from app.middleware.rate_limiter import limiter
 from app.routers import chat_router, documents_router, health_router, upload_router
+from app.routers.suggest_router import router as suggest_router
 from app.services.llm import create_llm_service
 from app.services.retriever import create_retriever
 from app.services.vector_store import create_vector_store
@@ -26,8 +24,11 @@ from app.services.vector_store import create_vector_store
 async def lifespan(app: FastAPI):
     """Initialize and tear down shared application services."""
     app.state.vector_store = create_vector_store()
-    app.state.retriever = create_retriever(app.state.vector_store)
     app.state.llm_service = create_llm_service()
+    app.state.retriever = create_retriever(
+        app.state.vector_store,
+        llm_client=app.state.llm_service._client,
+    )
     app.state.document_registry = {}
     yield
 
@@ -61,3 +62,4 @@ app.include_router(health_router)
 app.include_router(upload_router)
 app.include_router(documents_router)
 app.include_router(chat_router)
+app.include_router(suggest_router)

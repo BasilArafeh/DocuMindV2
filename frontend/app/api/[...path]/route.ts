@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 
 const UPSTREAM =
-  "https://documindv2-production.up.railway.app";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const HOP_BY_HOP = new Set([
   "accept-encoding",

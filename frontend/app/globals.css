@@ -198,6 +198,12 @@ body {
   }
 }
 
+/* Keep answer list text as one flush column (react-markdown wraps loose items in <p>). */
+.answer-li-body > p {
+  margin: 0;
+  padding: 0;
+}
+
 .source-enter {
   animation: source-in 0.3s ease both;
 }

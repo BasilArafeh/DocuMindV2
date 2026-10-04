@@ -36,6 +36,28 @@ export async function readError(response: Response, fallback: string) {
   return apiErrorMessage(payload, fallback);
 }
 
+export async function fetchSuggestions(
+  sessionId: string,
+  options?: { docId?: string },
+): Promise<string[]> {
+  try {
+    const body: Record<string, string> = { session_id: sessionId };
+    if (options?.docId) body.doc_id = options.docId;
+
+    const res = await fetch(`${BASE_URL}/suggest-questions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch {
+    return [];
+  }
+}
+
 export function normalizeCitations(raw: unknown): Citation[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
@@ -113,6 +135,8 @@ export function normalizeRetrieval(raw: unknown): RetrievalStatus | null {
   return { documentCount, chunkCount, filenames };
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function streamChat(
   sessionId: string,
   question: string,
@@ -120,6 +144,7 @@ export async function streamChat(
     onToken: (token: string) => void;
     onCitations: (citations: Citation[]) => void;
     onStatus: (status: RetrievalStatus) => void;
+    onCorrection?: (content: string) => void;
   },
   signal: AbortSignal,
 ) {
@@ -146,7 +171,17 @@ export async function streamChat(
   let buffer = "";
   let eventType = "";
 
-  const consumeLine = (line: string) => {
+  const emitToken = async (chunk: string) => {
+    // Batch a few characters per paint so streaming stays fast without 1-char jank.
+    const step = 8;
+    for (let i = 0; i < chunk.length; i += step) {
+      if (signal.aborted) return;
+      await sleep(10);
+      handlers.onToken(chunk.slice(i, i + step));
+    }
+  };
+
+  const consumeLine = async (line: string) => {
     const trimmed = line.replace(/\r$/, "");
     if (!trimmed) {
       eventType = "";
@@ -181,10 +216,17 @@ export async function streamChat(
       if (status) handlers.onStatus(status);
     }
 
+    if (eventType === "correction") {
+      if (typeof payload.content === "string") {
+        handlers.onCorrection?.(payload.content);
+      }
+      return;
+    }
+
     if (typeof payload.token === "string") {
-      handlers.onToken(payload.token);
+      await emitToken(payload.token);
     } else if (typeof payload.content === "string" && eventType !== "citations") {
-      handlers.onToken(payload.content);
+      await emitToken(payload.content);
     }
 
     if (Array.isArray(payload.citations)) {
@@ -198,8 +240,8 @@ export async function streamChat(
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-    for (const line of lines) consumeLine(line);
+    for (const line of lines) await consumeLine(line);
   }
 
-  if (buffer.trim()) consumeLine(buffer);
+  if (buffer.trim()) await consumeLine(buffer);
 }

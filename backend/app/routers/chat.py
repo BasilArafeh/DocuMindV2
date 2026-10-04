@@ -131,14 +131,13 @@ async def _stream_chat_events(
         },
     )
 
-    yield _format_sse_event(
-        "citations",
-        {"citations": _citations_payload(included_chunks)},
-    )
+    full_answer = ""
 
     try:
 
         async for token in llm.stream_answer(question, chunks):
+
+            full_answer += token
 
             yield _format_sse_event("token", {"content": token})
 
@@ -155,6 +154,30 @@ async def _stream_chat_events(
         )
 
         return
+
+    # Parse the ANSWERED/DEFLECTED marker from the answer
+    answered = True
+    clean_answer = full_answer
+
+    if "[ANSWERED]" in full_answer:
+        clean_answer = full_answer.replace("[ANSWERED]", "").rstrip()
+        answered = True
+    elif "[DEFLECTED]" in full_answer:
+        clean_answer = full_answer.replace("[DEFLECTED]", "").rstrip()
+        answered = False
+
+    # Send a correction event to replace the streamed answer with the clean version
+    yield _format_sse_event(
+        "correction",
+        {"content": clean_answer},
+    )
+
+    # Only send citations if GPT answered from the document
+    if answered:
+        yield _format_sse_event(
+            "citations",
+            {"citations": _citations_payload(included_chunks)},
+        )
 
     yield _format_sse_event("done", {})
 

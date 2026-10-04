@@ -1,6 +1,10 @@
 export type DocumentItem = {
   docId: string;
   filename: string;
+  /** Clean name for UI; falls back to filename when missing. */
+  displayName?: string;
+  originalName?: string;
+  originalFilename?: string;
   chunksCreated: number;
   fileSizeMb?: number;
 };

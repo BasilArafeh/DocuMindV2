@@ -7,14 +7,15 @@ import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
   createId,
+  fetchSuggestions,
   isPdf,
   readError,
   streamChat,
 } from "@/lib/api";
 import type { ChatMessage, Citation, DocumentItem } from "@/lib/types";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FollowUpChips } from "@/components/ui/FollowUpChips";
 import type { HistoryItem } from "@/components/ui/HistoryList";
+import { IndexingState } from "@/components/ui/IndexingState";
 import { Answer } from "./Answer";
 import { Composer } from "./Composer";
 import { EvidenceStage } from "./EvidenceStage";
@@ -38,19 +39,38 @@ function ConversationBody({
   messages,
   documents,
   focusedMessageId,
+  uploading,
   onUpload,
   onAsk,
+  suggestions,
+  loadingSuggestions,
 }: {
   messages: ChatMessage[];
   documents: DocumentItem[];
   focusedMessageId: string | null;
+  uploading: boolean;
   onUpload: () => void;
   onAsk: (question: string) => void;
+  suggestions: string[];
+  loadingSuggestions: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const wasUploading = useRef(false);
+  const [indexingPhase, setIndexingPhase] = useState<"idle" | "uploading" | "success">("idle");
   const last = messages.at(-1);
-  const lastAssistantDone =
-    last?.role === "assistant" && !last.streaming && Boolean(last.content) && !last.error;
+
+  useEffect(() => {
+    if (uploading) {
+      wasUploading.current = true;
+      setIndexingPhase("uploading");
+      return;
+    }
+    if (!wasUploading.current) return;
+    wasUploading.current = false;
+    setIndexingPhase("success");
+    const timer = window.setTimeout(() => setIndexingPhase("idle"), 800);
+    return () => window.clearTimeout(timer);
+  }, [uploading]);
 
   useEffect(() => {
     const node = scrollerRef.current;
@@ -67,16 +87,22 @@ function ConversationBody({
   return (
     <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
       {messages.length === 0 ? (
-        <EmptyState
-          hasDocuments={documents.length > 0}
-          documentCount={documents.length}
-          onUpload={onUpload}
-          onAsk={onAsk}
-        />
+        indexingPhase === "uploading" || indexingPhase === "success" ? (
+          <IndexingState phase={indexingPhase} />
+        ) : (
+          <EmptyState
+            hasDocuments={documents.length > 0}
+            documentCount={documents.length}
+            onUpload={onUpload}
+            onAsk={onAsk}
+            suggestions={suggestions}
+            loadingSuggestions={loadingSuggestions}
+          />
+        )
       ) : (
         <div
           className="mx-auto flex w-full flex-col"
-          style={{ padding: "32px 48px", maxWidth: 780 }}
+          style={{ padding: "40px 48px 32px", maxWidth: 780 }}
         >
           {messages.map((message) => {
             if (message.role === "user") {
@@ -98,7 +124,6 @@ function ConversationBody({
               </div>
             );
           })}
-          {lastAssistantDone ? <FollowUpChips onAsk={onAsk} /> : null}
         </div>
       )}
     </div>
@@ -178,6 +203,8 @@ export function QaScreen() {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
   const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -234,6 +261,7 @@ export function QaScreen() {
       setUploadError(null);
       setUploading(true);
 
+      let lastDocId: string | undefined;
       try {
         for (const file of files) {
           if (!isPdf(file)) {
@@ -266,10 +294,12 @@ export function QaScreen() {
           const nextDoc: DocumentItem = {
             docId: payload.doc_id,
             filename: payload.filename || file.name,
+            displayName: file.name,
             chunksCreated: payload.chunks_created,
             fileSizeMb: payload.file_size_mb,
           };
 
+          lastDocId = nextDoc.docId;
           setDocuments((current) => {
             const without = current.filter((doc) => doc.docId !== nextDoc.docId);
             return [nextDoc, ...without];
@@ -283,6 +313,13 @@ export function QaScreen() {
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+
+      if (lastDocId) {
+        setLoadingSuggestions(true);
+        const initial = await fetchSuggestions(sessionId, { docId: lastDocId });
+        setSuggestions(initial);
+        setLoadingSuggestions(false);
       }
     },
     [sessionId],
@@ -393,6 +430,15 @@ export function QaScreen() {
           },
           onStatus: (retrieval) => {
             patchAssistant({ retrieval });
+          },
+          onCorrection: (corrected) => {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === assistantId
+                  ? { ...message, content: corrected }
+                  : message,
+              ),
+            );
           },
         },
         controller.signal,
@@ -567,47 +613,16 @@ export function QaScreen() {
                     </>
                   ) : null}
                 </div>
-                {activeQuestion ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      style={{
-                        border: "1px solid #E4E0D8",
-                        borderRadius: 8,
-                        fontSize: 13,
-                        color: "#4A4A4A",
-                        padding: "6px 14px",
-                        background: "transparent",
-                        fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Share
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        border: "1px solid #E4E0D8",
-                        borderRadius: 8,
-                        fontSize: 13,
-                        color: "#4A4A4A",
-                        padding: "6px 14px",
-                        background: "transparent",
-                        fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Export
-                    </button>
-                  </div>
-                ) : null}
               </header>
               <ConversationBody
                 messages={messages}
                 documents={documents}
                 focusedMessageId={focusedMessageId}
+                uploading={uploading}
                 onUpload={() => fileInputRef.current?.click()}
                 onAsk={(text) => void sendQuestion(text)}
+                suggestions={suggestions}
+                loadingSuggestions={loadingSuggestions}
               />
               <Composer
                 value={question}

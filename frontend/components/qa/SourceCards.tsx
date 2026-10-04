@@ -1,84 +1,81 @@
 "use client";
 
 import { useState } from "react";
+import { cleanDisplayFilename } from "@/lib/filename";
 import type { Citation } from "@/lib/types";
 
-function SourceCard({
+function truncateFilename(name: string, max = 30) {
+  const cleaned = cleanDisplayFilename(name);
+  if (cleaned.length <= max) return cleaned;
+  return `${cleaned.slice(0, max - 1)}…`;
+}
+
+function SourceRow({
   citation,
-  featured,
-  index,
+  isLast,
 }: {
   citation: Citation;
-  featured: boolean;
-  index: number;
+  isLast: boolean;
 }) {
-  const quote = citation.text?.trim() || "Passage retrieved from this document.";
-  const page = citation.chunkIndex + 1;
+  const passage = citation.chunkIndex + 1;
 
   return (
     <div
       className="source-enter"
-      style={
-        featured
-          ? {
-              background: "#FEF0E7",
-              borderLeft: "3px solid #F26419",
-              borderRadius: 8,
-              padding: "12px 16px",
-              marginBottom: 8,
-              animationDelay: `${index * 80}ms`,
-            }
-          : {
-              background: "#FFFFFF",
-              border: "1px solid #E4E0D8",
-              borderRadius: 8,
-              padding: "12px 16px",
-              marginBottom: 8,
-              animationDelay: `${index * 80}ms`,
-            }
-      }
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 0",
+        borderBottom: isLast ? "none" : "0.5px solid #EDEAE2",
+        fontSize: 13,
+        color: "#4A4A4A",
+        fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+      }}
     >
       <span
         style={{
           display: "inline-flex",
           width: 20,
           height: 20,
+          flexShrink: 0,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 5,
-          background: featured ? "#F26419" : "#F4F2EE",
-          color: featured ? "#FFFFFF" : "#4A4A4A",
+          background: "#F26419",
+          color: "#FFFFFF",
           fontSize: 11,
           fontWeight: 600,
-          fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
         }}
       >
         {citation.n}
       </span>
-      <p
+      <span
         style={{
-          marginTop: 6,
-          fontSize: 13,
-          fontStyle: "italic",
-          color: "#1A1A1A",
-          lineHeight: 1.6,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
       >
-        “{quote}”
-      </p>
-      <p style={{ marginTop: 4, fontSize: 11, color: "#8A8A8A" }}>
-        {citation.filename} · p. {page}
-      </p>
+        {truncateFilename(citation.filename)}
+      </span>
+      <span aria-hidden="true">·</span>
+      <span style={{ flexShrink: 0 }}>Passage {passage}</span>
     </div>
   );
 }
 
+const PREVIEW_COUNT = 2;
+
 export function SourceCards({ citations }: { citations: Citation[] }) {
   const [expanded, setExpanded] = useState(false);
+
   if (!citations.length) return null;
 
-  const visible = expanded ? citations : citations.slice(0, 3);
-  const remaining = citations.length - 3;
+  const hasMore = citations.length > PREVIEW_COUNT;
+  const visible = expanded || !hasMore ? citations : citations.slice(0, PREVIEW_COUNT);
+  const moreCount = citations.length - PREVIEW_COUNT;
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -95,17 +92,16 @@ export function SourceCards({ citations }: { citations: Citation[] }) {
         Sources
       </p>
       {visible.map((citation, index) => (
-        <SourceCard
+        <SourceRow
           key={`${citation.n}-${citation.chunkId ?? citation.chunkIndex}`}
           citation={citation}
-          featured={citation.n === citations[0]?.n}
-          index={index}
+          isLast={index === visible.length - 1}
         />
       ))}
-      {!expanded && remaining > 0 ? (
+      {hasMore ? (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => setExpanded((value) => !value)}
           style={{
             color: "#F26419",
             fontSize: 13,
@@ -113,17 +109,11 @@ export function SourceCards({ citations }: { citations: Citation[] }) {
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            padding: 0,
+            padding: "4px 0",
             fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
           }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.textDecoration = "underline";
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.textDecoration = "none";
-          }}
         >
-          Show {remaining} more source{remaining === 1 ? "" : "s"}
+          {expanded ? "Show less" : `Show ${moreCount} more sources`}
         </button>
       ) : null}
     </div>
